@@ -34,12 +34,3 @@ cargo run --release
 - `.github/workflows/rust.yml`：CI
 - `.github/workflows/build-desktop.yml`：Windows / macOS 构建产物
 
-## 自动构建产物
-
-推送到 `main` 或手动触发后，GitHub Actions 会自动生成：
-
-- Windows x64 可执行文件
-- macOS Intel 可执行文件
-- macOS Apple Silicon 可执行文件
-
-当你推送标签（例如 `v0.1.0`）时，会自动创建 GitHub Release，并把以上构建产物作为附件上传。
