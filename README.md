@@ -41,3 +41,5 @@ cargo run --release
 - Windows x64 可执行文件
 - macOS Intel 可执行文件
 - macOS Apple Silicon 可执行文件
+
+当你推送标签（例如 `v0.1.0`）时，会自动创建 GitHub Release，并把以上构建产物作为附件上传。
