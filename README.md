@@ -1,85 +1,72 @@
-# eframe template
+# eframe 桌面节点编辑器示例
 
-[![dependency status](https://deps.rs/repo/github/emilk/eframe_template/status.svg)](https://deps.rs/repo/github/emilk/eframe_template)
-[![Build Status](https://github.com/emilk/eframe_template/workflows/CI/badge.svg)](https://github.com/emilk/eframe_template/actions?workflow=CI)
+这是一个基于 `eframe` / `egui` 的 Rust 桌面应用示例，当前重点是桌面端交互教学：
 
-This is a template repo for [eframe](https://github.com/emilk/egui/tree/master/crates/eframe), a framework for writing apps using [egui](https://github.com/emilk/egui/).
+- 节点绘制与拖拽
+- 端口连接与连线删除
+- 可编辑标题和正文
+- 画布平移、网格背景、缩放快捷键
 
-The goal is for this to be the simplest way to get started writing a GUI app in Rust.
+项目定位是“学习型模板”，代码里保留了较多中文注释，便于初学者按函数理解状态管理和渲染流程。
 
-You can compile your app natively or for the web, and share it using Github Pages.
+## 环境要求
 
-## Getting started
+- Rust stable（建议使用 `rustup`）
+- macOS / Windows / Linux 任一桌面系统
 
-Start by clicking "Use this template" at https://github.com/emilk/eframe_template/ or follow [these instructions](https://docs.github.com/en/free-pro-team@latest/github/creating-cloning-and-archiving-repositories/creating-a-repository-from-a-template).
+## 本地运行
 
-Change the name of the crate: Choose a good name for your project, and change the name to it in:
-* `Cargo.toml`
-    * Change the `package.name` from `eframe_template` to `your_crate`.
-    * Change the `package.authors`
-* `main.rs`
-    * Change `eframe_template::TemplateApp` to `your_crate::TemplateApp`
-* `index.html`
-    * Change the `<title>eframe template</title>` to `<title>your_crate</title>`. optional.
-* `assets/sw.js`
-  * Change the `'./eframe_template.js'` to `./your_crate.js` (in `filesToCache` array)
-  * Change the `'./eframe_template_bg.wasm'` to `./your_crate_bg.wasm` (in `filesToCache` array)
+```bash
+cargo run --release
+```
 
-Alternatively, you can run `fill_template.sh` which will ask for the needed names and email and perform the above patches for you. This is particularly useful if you clone this repository outside GitHub and hence cannot make use of its
-templating function.
+## 常用开发命令
 
-### Learning about egui
+```bash
+cargo fmt --all
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo test --workspace --all-targets
+cargo check --workspace --all-targets --all-features
+```
 
-`src/app.rs` contains a simple example app. This is just to give some inspiration - most of it can be removed if you like.
+## 主要快捷键
 
-The official egui docs are at <https://docs.rs/egui>. If you prefer watching a video introduction, check out <https://www.youtube.com/watch?v=NtUkr_z7l84>. For inspiration, check out the [the egui web demo](https://emilk.github.io/egui/index.html) and follow the links in it to its source code.
+- `Command + +` 或 `Command + =`：放大界面
+- `Command + -`：缩小界面
+- `Command + 0`：恢复 100% 缩放
 
-### Testing locally
+在 Windows/Linux 上，`Command` 对应 `Ctrl`。
 
-`cargo run --release`
+## 项目结构
 
-On Linux you need to first run:
+- `src/app.rs`：核心界面逻辑（节点、连线、输入事件、绘制）
+- `src/main.rs`：应用入口与窗口配置
+- `src/lib.rs`：模块导出
+- `assets/`：应用图标资源
+- `.github/workflows/rust.yml`：基础 CI（fmt/clippy/test/check）
+- `.github/workflows/build-desktop.yml`：自动构建 Windows/macOS 可执行文件
 
-`sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev`
+## 自动构建说明
 
-On Fedora Rawhide you need to run:
+仓库已配置 GitHub Actions 自动构建：
 
-`dnf install clang clang-devel clang-tools-extra libxkbcommon-devel pkg-config openssl-devel libxcb-devel gtk3-devel atk fontconfig-devel`
+1. `CI` 工作流
+   - 触发：`push main`、`pull_request`、手动触发
+   - 内容：格式检查、Clippy、测试、编译检查
 
-### Web Locally
+2. `Build Desktop Binaries` 工作流
+   - 触发：`push main`、推送 `v*` 标签、手动触发
+   - 产物：
+     - `eframe_template-windows-x64`
+     - `eframe_template-macos-intel`
+     - `eframe_template-macos-apple-silicon`
 
-You can compile your app to [WASM](https://en.wikipedia.org/wiki/WebAssembly) and publish it as a web page.
+构建完成后可在 GitHub Actions 的对应运行记录里下载 artifacts。
 
-We use [Trunk](https://trunkrs.dev/) to build for web target.
-1. Install the required target with `rustup target add wasm32-unknown-unknown`.
-2. Install Trunk with `cargo install --locked trunk`.
-3. Run `trunk serve` to build and serve on `http://127.0.0.1:8080`. Trunk will rebuild automatically if you edit the project.
-4. Open `http://127.0.0.1:8080/index.html#dev` in a browser. See the warning below.
+## Linux 依赖（如需）
 
-> `assets/sw.js` script will try to cache our app, and loads the cached version when it cannot connect to server allowing your app to work offline (like PWA).
-> appending `#dev` to `index.html` will skip this caching, allowing us to load the latest builds during development.
+Ubuntu/Debian:
 
-### Web Deploy
-1. Just run `trunk build --release`.
-2. It will generate a `dist` directory as a "static html" website
-3. Upload the `dist` directory to any of the numerous free hosting websites including [GitHub Pages](https://docs.github.com/en/free-pro-team@latest/github/working-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site).
-4. we already provide a workflow that auto-deploys our app to GitHub pages if you enable it.
-> To enable Github Pages, you need to go to Repository -> Settings -> Pages -> Source -> set to `gh-pages` branch and `/` (root).
->
-> If `gh-pages` is not available in `Source`, just create and push a branch called `gh-pages` and it should be available.
->
-> If you renamed the `main` branch to something else (say you re-initialized the repository with `master` as the initial branch), be sure to edit the github workflows `.github/workflows/pages.yml` file to reflect the change
-> ```yml
-> on:
->   push:
->     branches:
->       - <branch name>
-> ```
-
-You can test the template app at <https://emilk.github.io/eframe_template/>.
-
-## Updating egui
-
-As of 2023, egui is in active development with frequent releases with breaking changes. [eframe_template](https://github.com/emilk/eframe_template/) will be updated in lock-step to always use the latest version of egui.
-
-When updating `egui` and `eframe` it is recommended you do so one version at the time, and read about the changes in [the egui changelog](https://github.com/emilk/egui/blob/master/CHANGELOG.md) and [eframe changelog](https://github.com/emilk/egui/blob/master/crates/eframe/CHANGELOG.md).
+```bash
+sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev
+```
