@@ -21,14 +21,17 @@ jobs:
             target: x86_64-pc-windows-msvc
             artifact_name: windows-x64
             binary_ext: .exe
+            rustflags: -C target-feature=+crt-static
           - runner: macos-latest
             target: x86_64-apple-darwin
             artifact_name: macos-intel
             binary_ext: ""
+            rustflags: ""
           - runner: macos-latest
             target: aarch64-apple-darwin
             artifact_name: macos-apple-silicon
             binary_ext: ""
+            rustflags: ""
 
     steps:
       - name: Checkout
@@ -43,6 +46,8 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Build release
+        env:
+          RUSTFLAGS: ${{ matrix.rustflags }}
         run: cargo build --release --target ${{ matrix.target }}
 
       - name: Package binary
