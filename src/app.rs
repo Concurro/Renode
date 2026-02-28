@@ -65,7 +65,7 @@ struct Node {
     ///
     /// 为什么要用世界坐标？
     /// - 画布可以平移（pan）
-    /// - 屏幕坐标 = 世界坐标 + pan_offset
+    /// - 屏幕坐标 = 世界坐标 + `pan_offset`
     position: Pos2,
     /// 节点尺寸。
     size: Vec2,
@@ -188,7 +188,7 @@ impl NodeGraphApp {
 
     /// 计算节点在“屏幕坐标”里的矩形。
     ///
-    /// 核心公式：screen = world + pan_offset
+    /// 核心公式：screen = world + `pan_offset`
     fn node_rect_screen(&self, node: &Node) -> Rect {
         Rect::from_min_size(node.position + self.pan_offset, node.size)
     }
@@ -307,7 +307,7 @@ impl NodeGraphApp {
     }
 
     /// 绘制所有“正式连线”。
-    fn draw_connections(&self, ui: &mut egui::Ui) {
+    fn draw_connections(&self, ui: &egui::Ui) {
         let painter = ui.painter();
 
         for connection in &self.connections {
@@ -328,7 +328,7 @@ impl NodeGraphApp {
     /// 绘制“正在拖拽中的临时连线”。
     ///
     /// 当用户从输出端口按下并拖动时，这条线会跟随鼠标移动。
-    fn draw_dragging_link(&self, ui: &mut egui::Ui) {
+    fn draw_dragging_link(&self, ui: &egui::Ui) {
         let Some(link) = self.dragging_link else {
             return;
         };
@@ -343,7 +343,9 @@ impl NodeGraphApp {
 
     /// 绘制单个节点，并处理该节点相关输入（拖拽、端口交互）。
     fn draw_node(&mut self, ui: &mut egui::Ui, node_index: usize) {
-        let node = &mut self.nodes[node_index];
+        let Some(node) = self.nodes.get_mut(node_index) else {
+            return;
+        };
         let node_rect = Rect::from_min_size(node.position + self.pan_offset, node.size);
         let header_rect =
             Rect::from_min_size(node_rect.min, Vec2::new(node_rect.width(), HEADER_HEIGHT));
@@ -396,7 +398,20 @@ impl NodeGraphApp {
             });
         }
 
-        // ---- 节点外观绘制 ----
+        Self::draw_node_frame(ui, node_rect, header_rect, node_hovered);
+        let is_editing = Self::draw_node_text_editors(ui, node, node_rect, header_rect);
+
+        // 输入/输出端口可视化：使用“插槽”风格而不是简单圆点。
+        Self::draw_port_socket(ui, input_pos, PortKind::Input, input_response.hovered());
+        Self::draw_port_socket(ui, output_pos, PortKind::Output, output_response.hovered());
+
+        // 编辑时切换为文字光标，减少“可编辑区域不明确”的体验问题。
+        if is_editing {
+            ui.ctx().set_cursor_icon(CursorIcon::Text);
+        }
+    }
+
+    fn draw_node_frame(ui: &egui::Ui, node_rect: Rect, header_rect: Rect, node_hovered: bool) {
         let border_color = if node_hovered {
             NODE_BORDER_HOVER_COLOR
         } else {
@@ -410,16 +425,16 @@ impl NodeGraphApp {
             Color32::from_rgba_unmultiplied(0, 0, 0, 60),
         );
 
-        // 节点主体背景。
+        // 节点主体背景与边框。
         ui.painter()
             .rect_filled(node_rect, CornerRadius::same(8), NODE_BG_COLOR);
-        // 节点边框。
         ui.painter().rect_stroke(
             node_rect,
             CornerRadius::same(8),
             Stroke::new(1.5, border_color),
             StrokeKind::Outside,
         );
+
         ui.painter().rect_filled(
             header_rect,
             CornerRadius {
@@ -430,7 +445,14 @@ impl NodeGraphApp {
             },
             NODE_HEADER_COLOR,
         );
+    }
 
+    fn draw_node_text_editors(
+        ui: &mut egui::Ui,
+        node: &mut Node,
+        node_rect: Rect,
+        header_rect: Rect,
+    ) -> bool {
         // 文本框必须直接绑定 node 字段，才能真正修改状态。
         let title_rect = header_rect.shrink2(Vec2::new(NODE_INNER_PADDING_X, 5.0));
         let title_resp = ui.put(
@@ -452,7 +474,6 @@ impl NodeGraphApp {
                 node_rect.bottom() - NODE_INNER_PADDING_Y,
             ),
         );
-        // 正文编辑区背景：自绘浅色底，避免默认输入框黑底突兀。
         ui.painter()
             .rect_filled(content_rect, CornerRadius::same(6), NODE_BG_COLOR);
         let content_text_rect = content_rect.shrink2(Vec2::new(8.0, 6.0));
@@ -467,12 +488,7 @@ impl NodeGraphApp {
         );
         Self::clamp_text_lines(&mut node.content, Self::max_content_lines(node_rect));
 
-        // 输入/输出端口可视化：使用“插槽”风格而不是简单圆点。
-        Self::draw_port_socket(ui, input_pos, PortKind::Input, input_response.hovered());
-        Self::draw_port_socket(ui, output_pos, PortKind::Output, output_response.hovered());
-
-        // 读取焦点状态，确保这些响应变量不是“仅创建未使用”。
-        let _is_editing = title_resp.has_focus() || content_resp.has_focus();
+        title_resp.has_focus() || content_resp.has_focus()
     }
 
     /// 限制正文最多显示行数，防止在固定高度输入框里“回车无限下沉”。
@@ -647,22 +663,22 @@ impl NodeGraphApp {
 
         // 只在“鼠标左键已松开”时结算。
         if !ctx.input(|i| i.pointer.primary_down()) {
-            if let Some(pointer_pos) = ctx.input(|i| i.pointer.interact_pos()) {
-                if let Some((target_node_id, target_port)) = self.port_at(pointer_pos) {
-                    let duplicate_exists = self.connections.iter().any(|connection| {
-                        connection.from_node_id == link.from_node
-                            && connection.to_node_id == target_node_id
-                    });
+            if let Some(pointer_pos) = ctx.input(|i| i.pointer.interact_pos())
+                && let Some((target_node_id, target_port)) = self.port_at(pointer_pos)
+            {
+                let duplicate_exists = self.connections.iter().any(|connection| {
+                    connection.from_node_id == link.from_node
+                        && connection.to_node_id == target_node_id
+                });
 
-                    if target_port == PortKind::Input
-                        && target_node_id != link.from_node
-                        && !duplicate_exists
-                    {
-                        self.connections.push(Connection {
-                            from_node_id: link.from_node,
-                            to_node_id: target_node_id,
-                        });
-                    }
+                if target_port == PortKind::Input
+                    && target_node_id != link.from_node
+                    && !duplicate_exists
+                {
+                    self.connections.push(Connection {
+                        from_node_id: link.from_node,
+                        to_node_id: target_node_id,
+                    });
                 }
             }
 
@@ -761,18 +777,17 @@ impl eframe::App for NodeGraphApp {
                 }
 
                 // 如果正在拖拽临时连线，每帧更新鼠标位置。
-                if let Some(link) = &mut self.dragging_link {
-                    if let Some(pointer_pos) = ctx.input(|i| i.pointer.interact_pos()) {
-                        link.current_pos = pointer_pos;
-                        ctx.request_repaint();
-                    }
+                if let Some(link) = &mut self.dragging_link
+                    && let Some(pointer_pos) = ctx.input(|i| i.pointer.interact_pos())
+                {
+                    link.current_pos = pointer_pos;
+                    ctx.request_repaint();
                 }
-                if ctx.input(|i| i.pointer.button_clicked(PointerButton::Secondary)) {
-                    if let Some(pos) = ctx.input(|i| i.pointer.interact_pos()) {
-                        if let Some(index) = self.hit_test_connection(pos, 10.0) {
-                            self.connections.remove(index);
-                        }
-                    }
+                if ctx.input(|i| i.pointer.button_clicked(PointerButton::Secondary))
+                    && let Some(pos) = ctx.input(|i| i.pointer.interact_pos())
+                    && let Some(index) = self.hit_test_connection(pos, 10.0)
+                {
+                    self.connections.remove(index);
                 }
                 // 先结算“连线拖拽是否结束”，再处理“画布平移”。
                 self.finish_dragging_link_if_needed(ctx);

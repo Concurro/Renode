@@ -59,7 +59,7 @@ fn configure_system_font(ctx: &egui::Context) {
         Ok(font_data) => {
             fonts.font_data.insert(
                 "system_chinese".to_owned(),
-                egui::FontData::from_owned(font_data.into()).into(),
+                egui::FontData::from_owned(font_data).into(),
             );
 
             // 将中文字体作为后备字体添加到 Proportional 家族
@@ -70,7 +70,7 @@ fn configure_system_font(ctx: &egui::Context) {
                 .push("system_chinese".to_owned());
         }
         Err(e) => {
-            eprintln!("警告：无法加载系统字体 '{}'：{}", font_path, e);
+            log::warn!("无法加载系统字体 '{font_path}'：{e}");
             // 可以 fallback 到内置字体（但无法显示中文）
             // 或者提示用户手动放置字体文件
         }
